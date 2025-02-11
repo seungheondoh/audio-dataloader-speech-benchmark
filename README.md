@@ -1,6 +1,6 @@
 # Audio Loading Speed Test
 
-This project provides tools for benchmarking different audio loading methods across various storage types and loading libraries. It helps you understand and optimize audio loading performance in your applications.
+This project compares the performance of iterable dataloaders when loading a large-scale audio dataset (100k samples, 860 hours) across different storage types and audio loading libraries.
 
 - Comprehensive audio loading benchmarks:
   - Compare performance across storage types (HDD, SSD, NFS)

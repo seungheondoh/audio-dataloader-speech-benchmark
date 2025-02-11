@@ -6,8 +6,6 @@ from multiprocessing import Pool, Manager
 
 def process_file(args):
     idx, filename, target_audio_dir, ssd_dir, hdd_dir, ssd2_dir = args
-    if idx >= 100:
-        return None
     src = os.path.join(target_audio_dir, filename)
     dst = os.path.join(ssd_dir, filename)
     hdd_dst = os.path.join(hdd_dir, filename)
@@ -35,4 +33,7 @@ with Pool() as pool:
     durations = [d for d in durations if d is not None]
     
 # average audio duration:296.74471641
+total_duration_hours = sum(durations) / 3600  # Convert seconds to hours
+print(f"Total audio duration: {total_duration_hours:.2f} hours")
+
 print(np.mean(durations))

@@ -16,11 +16,11 @@ def main(args):
 
     # Test 1: Single file comparison
     print("Running single file tests...")
-    test.run_storage_comparison('7481.mp3')
+    test.run_storage_comparison()
     test.visualize_results('single_file')
     # Test 2: DataLoadser comparison
     batch_size = 1
-    num_workers = 8
+    num_workers = 32
     dataloader_results = {}
     for storage_type, path in storage_paths.items():
         print(f"\nTesting DataLoader with {storage_type}...")
@@ -36,7 +36,6 @@ def main(args):
                 dataset,
                 batch_size=batch_size,
                 num_workers=num_workers,
-                shuffle=True
             )
             # Time the entire epoch
             start_time = time.time()

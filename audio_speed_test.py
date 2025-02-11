@@ -23,19 +23,28 @@ def run_loader(args):
     _ = loader_func(file_path)
     return time.time() - start_time
     
-class AudioDataset(Dataset):
+class AudioDataset(torch.utils.data.IterableDataset):
     def __init__(self, root_dir: str, loader_func: Callable):
+        super().__init__()
         self.root_dir = Path(root_dir)
-        self.audio_files = list(os.listdir(self.root_dir))  # Adjust extension as needed
+        self.audio_files = list(os.listdir(self.root_dir))
         self.loader_func = loader_func
-
-    def __len__(self):
-        return len(self.audio_files)
-
-    def __getitem__(self, idx):
-        audio_path = os.path.join(self.root_dir, self.audio_files[idx])
-        audio_data, sample_rate = self.loader_func(audio_path)
-        return audio_data
+        
+    def __iter__(self):
+        worker_info = torch.utils.data.get_worker_info()
+        if worker_info is None:  # Single-process data loading
+            iter_start = 0
+            iter_end = len(self.audio_files)
+        else:  # In a worker process
+            per_worker = int(len(self.audio_files) / worker_info.num_workers)
+            worker_id = worker_info.id
+            iter_start = worker_id * per_worker
+            iter_end = iter_start + per_worker if worker_id < worker_info.num_workers - 1 else len(self.audio_files)
+            
+        for idx in range(iter_start, iter_end):
+            audio_path = os.path.join(self.root_dir, self.audio_files[idx])
+            audio_data, sample_rate = self.loader_func(audio_path)
+            yield audio_data
 
 class AudioLoadingTest:
     def __init__(self, storage_paths: Dict[str, str]):
@@ -57,7 +66,7 @@ class AudioLoadingTest:
             '-f', 'f32le',
             '-acodec', 'pcm_f32le',
             '-ar', '44100',
-            '-ac', '1',
+            '-ac', '2',
             '-'
         ]
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -73,33 +82,32 @@ class AudioLoadingTest:
         data, sample_rate = librosa.load(file_path, sr=None) # no resampling
         return data, sample_rate
 
-    def test_single_file(self, file_path: str, n_iterations: int = 100) -> Dict:
+    def test_single_file(self, file_paths: str, n_item: int = 100) -> Dict:
         loaders = {
             'torchaudio': self.load_audio_torchaudio,
             'ffmpeg': self.load_audio_ffmpeg,
             'librosa': self.load_audio_librosa
         }
         results = {}
-        
+        audio_paths = file_paths[:n_item]        
         with multiprocessing.Pool() as pool:
             for loader_name, loader_func in loaders.items():
-                args = [(loader_func, file_path) for _ in range(n_iterations)]
+                args = [(loader_func, path) for path in audio_paths]
                 times = pool.map(run_loader, args)
                 
                 results[loader_name] = {
                     'mean': np.mean(times),
-                    'std': np.std(times), 
-                    'min': np.min(times),
+                    'std': np.std(times),
+                    'min': np.min(times), 
                     'max': np.max(times)
                 }
-        
         return results
 
-    def run_storage_comparison(self, filename: str):
+    def run_storage_comparison(self):
         results = {}
         for storage_type, path in self.storage_paths.items():
-            file_path = os.path.join(path, filename)
-            results[storage_type] = self.test_single_file(file_path)
+            file_paths = [os.path.join(path, f) for f in os.listdir(path)]
+            results[storage_type] = self.test_single_file(file_paths)
         self.results['single_file'] = results
         return results
 
