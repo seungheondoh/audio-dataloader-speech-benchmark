@@ -1,0 +1,8 @@
+__pycache__/
+audio_speed_test/
+*.wav
+*.mp3
+*.flac
+*.m4a
+*.aac
+*.ogg
